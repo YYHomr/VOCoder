@@ -1,29 +1,30 @@
+require('dotenv').config(); // load .env variables
 const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
+const OpenAI = require('openai');
+const AdmZip = require('adm-zip');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Serve static frontend
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // OpenAI configuration
 const client = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY, // <-- use dotenv variable
+    apiKey: process.env.OPENAI_API_KEY,
     baseURL: "https://api.groq.com/openai/v1",
 });
 
-
-
-// ... rest of your code stays the same
-
+// Chat API
 app.post('/api/chat', async (req, res) => {
     const { message } = req.body;
 
     try {
         const prompt = `
-        You are an expert full-stack developer. 
+        You are an expert full-stack developer. You are a fornt-end developer with a background in back-end development.
         When asked to create an app, respond ONLY with a JSON object containing the file structure.
         The JSON should be in this format:
         {
@@ -36,20 +37,14 @@ app.post('/api/chat', async (req, res) => {
         User request: ${message}
         `;
 
-        // Send prompt to OpenAI
         const response = await client.responses.create({
             model: "openai/gpt-oss-20b",
             input: prompt,
         });
 
-        // Extract text output
         let text = response.output_text || "";
-        
-        // Extract JSON from possible markdown
         const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            text = jsonMatch[0];
-        }
+        if (jsonMatch) text = jsonMatch[0];
 
         try {
             const jsonResponse = JSON.parse(text);
@@ -65,6 +60,7 @@ app.post('/api/chat', async (req, res) => {
     }
 });
 
+// Download API
 app.post('/api/download', (req, res) => {
     const { files } = req.body;
     const zip = new AdmZip();
@@ -79,11 +75,12 @@ app.post('/api/download', (req, res) => {
     res.send(zipBuffer);
 });
 
+// Catch-all route to serve frontend
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-
+// Start server
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
 });
